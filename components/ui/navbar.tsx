@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 import Link from "next/link"
 
 const linkClassName =
@@ -16,8 +17,17 @@ export default function Navbar() {
         <Link href="/recipes" className={linkClassName}>
           My recipes
         </Link>
-        <Link href="/profile" className={cn(linkClassName, "ml-auto")}>
-          Profile
+        <Link
+          href="/profile"
+          className="ml-auto rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <Image
+            src="/default-avatar.svg"
+            alt="Profile"
+            width={40}
+            height={40}
+            className="size-10 rounded-full border border-border bg-muted object-cover"
+          />
         </Link>
       </nav>
     </header>
