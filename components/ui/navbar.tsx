@@ -48,7 +48,7 @@ export default function Navbar() {
         <Link href="/" className={cn(linkClassName, "font-semibold")}>
           Cookly
         </Link>
-        <Link href="/recipes" className={linkClassName}>
+        <Link href="/my-recipes" className={linkClassName}>
           My recipes
         </Link>
         <div className="ml-auto flex items-center gap-4">
