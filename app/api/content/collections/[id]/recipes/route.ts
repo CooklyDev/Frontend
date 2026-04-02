@@ -2,11 +2,12 @@ import { buildServiceUrl, proxyError, proxyToUpstream, readBodyText, withSession
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const url = buildServiceUrl(
     process.env.CONTENT_SERVICE_URL,
-    `/collections/${params.id}/recipes`
+    `/collections/${id}/recipes`
   )
 
   if (!url) {

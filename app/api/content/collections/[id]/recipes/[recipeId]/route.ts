@@ -2,11 +2,12 @@ import { buildServiceUrl, proxyError, proxyToUpstream, withSessionHeader } from 
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string; recipeId: string } }
+  { params }: { params: Promise<{ id: string; recipeId: string }> }
 ) {
+  const { id, recipeId } = await params
   const url = buildServiceUrl(
     process.env.CONTENT_SERVICE_URL,
-    `/collections/${params.id}/recipes/${params.recipeId}`
+    `/collections/${id}/recipes/${recipeId}`
   )
 
   if (!url) {

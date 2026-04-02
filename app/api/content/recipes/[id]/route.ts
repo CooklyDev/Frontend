@@ -2,9 +2,10 @@ import { buildServiceUrl, proxyError, proxyToUpstream, withSessionHeader } from 
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const url = buildServiceUrl(process.env.CONTENT_SERVICE_URL, `/recipes/${params.id}`)
+  const { id } = await params
+  const url = buildServiceUrl(process.env.CONTENT_SERVICE_URL, `/recipes/${id}`)
 
   if (!url) {
     return proxyError("CONTENT_SERVICE_URL is not set")

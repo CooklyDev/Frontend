@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 
 const linkClassName =
@@ -13,6 +14,10 @@ const menuItemClassName =
 export default function Navbar() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [authState, setAuthState] = useState<
+    "loading" | "authenticated" | "guest"
+  >("loading")
+  const pathname = usePathname()
   const profileMenuRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
 
@@ -41,6 +46,101 @@ export default function Navbar() {
       document.removeEventListener("keydown", handleEscape)
     }
   }, [])
+
+  useEffect(() => {
+    let isActive = true
+
+    async function fetchProfileStatus() {
+      const sessionId = localStorage.getItem("session_id")
+
+      if (!sessionId) {
+        if (isActive) {
+          setAuthState("guest")
+        }
+        return
+      }
+
+      try {
+        const response = await fetch("/api/auth/profile", {
+          method: "GET",
+          headers: {
+            "X-Session-ID": sessionId,
+          },
+        })
+
+        if (!response.ok) {
+          if (isActive) {
+            setAuthState("guest")
+          }
+          return
+        }
+
+        if (isActive) {
+          setAuthState("authenticated")
+        }
+      } catch {
+        if (isActive) {
+          setAuthState("guest")
+        }
+      }
+    }
+
+    fetchProfileStatus()
+
+    function updateAuthFromSession() {
+      const sessionId = localStorage.getItem("session_id")
+
+      if (!sessionId) {
+        setAuthState("guest")
+        return
+      }
+
+      setAuthState("authenticated")
+      fetchProfileStatus()
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key === "session_id") {
+        updateAuthFromSession()
+      }
+    }
+
+    function handleSessionChange() {
+      updateAuthFromSession()
+    }
+
+    window.addEventListener("storage", handleStorage)
+    window.addEventListener("session-changed", handleSessionChange)
+
+    return () => {
+      isActive = false
+      window.removeEventListener("storage", handleStorage)
+      window.removeEventListener("session-changed", handleSessionChange)
+    }
+  }, [pathname])
+
+  async function handleLogout() {
+    const sessionId = localStorage.getItem("session_id")
+
+    if (!sessionId) {
+      setAuthState("guest")
+      setIsProfileMenuOpen(false)
+      return
+    }
+
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "X-Session-ID": sessionId,
+        },
+      })
+    } finally {
+      localStorage.removeItem("session_id")
+      setAuthState("guest")
+      setIsProfileMenuOpen(false)
+    }
+  }
 
   return (
     <header className="border-b border-border bg-background">
@@ -100,57 +200,76 @@ export default function Navbar() {
               />
             </div>
           </div>
-          <div ref={profileMenuRef} className="relative">
-          <button
-            type="button"
-            aria-expanded={isProfileMenuOpen}
-            aria-haspopup="menu"
-            aria-label="Open profile menu"
-            onClick={() => setIsProfileMenuOpen((currentState) => !currentState)}
-            className="rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <Image
-              src="/default-avatar.svg"
-              alt="Profile"
-              width={40}
-              height={40}
-              loading="eager"
-              className="size-10 rounded-full border border-border bg-muted object-cover"
-            />
-          </button>
-          {isProfileMenuOpen ? (
-            <div
-              role="menu"
-              aria-label="Profile menu"
-              className="absolute right-0 top-full z-10 mt-2 min-w-44 rounded-2xl border border-border bg-background p-2 shadow-lg"
-            >
-              <Link
-                href="/profile"
-                role="menuitem"
-                className={menuItemClassName}
-                onClick={() => setIsProfileMenuOpen(false)}
-              >
-                Profile
-              </Link>
-              <Link
-                href="/settings"
-                role="menuitem"
-                className={menuItemClassName}
-                onClick={() => setIsProfileMenuOpen(false)}
-              >
-                Settings
-              </Link>
+          {authState === "authenticated" ? (
+            <div ref={profileMenuRef} className="relative">
               <button
                 type="button"
-                role="menuitem"
-                className={menuItemClassName}
-                onClick={() => setIsProfileMenuOpen(false)}
+                aria-expanded={isProfileMenuOpen}
+                aria-haspopup="menu"
+                aria-label="Open profile menu"
+                onClick={() =>
+                  setIsProfileMenuOpen((currentState) => !currentState)
+                }
+                className="rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               >
-                Logout
+                <Image
+                  src="/default-avatar.svg"
+                  alt="Profile"
+                  width={40}
+                  height={40}
+                  loading="eager"
+                  className="size-10 rounded-full border border-border bg-muted object-cover"
+                />
               </button>
+              {isProfileMenuOpen ? (
+                <div
+                  role="menu"
+                  aria-label="Profile menu"
+                  className="absolute right-0 top-full z-10 mt-2 min-w-44 rounded-2xl border border-border bg-background p-2 shadow-lg"
+                >
+                  <Link
+                    href="/profile"
+                    role="menuitem"
+                    className={menuItemClassName}
+                    onClick={() => setIsProfileMenuOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                  <Link
+                    href="/settings"
+                    role="menuitem"
+                    className={menuItemClassName}
+                    onClick={() => setIsProfileMenuOpen(false)}
+                  >
+                    Settings
+                  </Link>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={menuItemClassName}
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : authState === "guest" ? (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login"
+                className="rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                Войти
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                Регистрация
+              </Link>
             </div>
           ) : null}
-          </div>
         </div>
       </nav>
     </header>
