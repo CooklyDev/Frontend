@@ -1,0 +1,12 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://host.docker.internal:8081}
+      CONTENT_SERVICE_URL: ${CONTENT_SERVICE_URL:-http://host.docker.internal:8082}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

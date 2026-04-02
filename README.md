@@ -34,3 +34,26 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Docker
+
+### Build image
+
+```bash
+docker build -t cookly-frontend .
+```
+
+### Run container
+
+```bash
+docker run --rm -p 3000:3000 \
+	-e AUTH_SERVICE_URL=http://host.docker.internal:8081 \
+	-e CONTENT_SERVICE_URL=http://host.docker.internal:8082 \
+	cookly-frontend
+```
+
+### Run with docker-compose
+
+```bash
+docker compose up --build
+```
