@@ -1,7 +1,7 @@
 import { buildServiceUrl, proxyError, proxyToUpstream } from "@/lib/server/proxy"
 
 export async function GET(req: Request) {
-  const url = buildServiceUrl(process.env.AUTH_SERVICE_URL, "/resolve")
+  const url = buildServiceUrl(process.env.AUTH_SERVICE_URL, "/api/v1/resolve")
 
   if (!url) {
     return proxyError("AUTH_SERVICE_URL is not set")
