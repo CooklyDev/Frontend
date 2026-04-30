@@ -87,23 +87,28 @@ export async function readBodyText(req: Request) {
 }
 
 export async function proxyToUpstream({ url, method, headers, body }: ProxyOptions) {
-  const response = await fetch(url, { method, headers, body })
-  const contentType = response.headers.get("content-type") ?? ""
-  const isJson = contentType.includes("application/json")
+  try {
+    const response = await fetch(url, { method, headers, body })
+    const contentType = response.headers.get("content-type") ?? ""
+    const isJson = contentType.includes("application/json")
 
-  let payload = ""
+    let payload = ""
 
-  if (isJson) {
-    const data = await response.json().catch(() => null)
-    payload = JSON.stringify(data)
-  } else {
-    payload = await response.text()
+    if (isJson) {
+      const data = await response.json().catch(() => null)
+      payload = JSON.stringify(data)
+    } else {
+      payload = await response.text()
+    }
+
+    return new NextResponse(payload, {
+      status: response.status,
+      headers: {
+        "content-type": isJson ? "application/json" : contentType || "text/plain",
+      },
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Upstream request failed"
+    return proxyError(message, 502)
   }
-
-  return new NextResponse(payload, {
-    status: response.status,
-    headers: {
-      "content-type": isJson ? "application/json" : contentType || "text/plain",
-    },
-  })
 }

@@ -1,7 +1,7 @@
 import { buildServiceUrl, proxyError, proxyToUpstream, readFormBody } from "@/lib/server/proxy"
 
 export async function POST(req: Request) {
-  const url = buildServiceUrl(process.env.AUTH_SERVICE_URL, "/api/v1/login")
+  const url = buildServiceUrl(process.env.AUTH_SERVICE_URL, "/login")
 
   if (!url) {
     return proxyError("AUTH_SERVICE_URL is not set")

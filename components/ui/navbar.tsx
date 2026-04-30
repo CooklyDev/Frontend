@@ -1,40 +1,79 @@
 "use client"
 
+import { AuthSettingsModal } from "@/components/cookly/auth-settings-modal"
+import { clearSessionId, logout, resolveProfile } from "@/lib/cookly/api"
+import type { AuthProfile } from "@/lib/cookly/types"
 import { cn } from "@/lib/utils"
+import { ChefHat, Menu, Search, Settings, UserRound, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 
-const linkClassName =
-  "rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-const menuItemClassName =
-  "block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+type ModalMode = "settings" | "login" | "register"
+
+const navLinkClass =
+  "rounded-2xl px-4 py-2 text-sm font-medium text-stone-300 transition hover:bg-white/10 hover:text-stone-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-amber-400/30"
 
 export default function Navbar() {
+  const [profile, setProfile] = useState<AuthProfile | null>(null)
+  const [authState, setAuthState] = useState<"loading" | "authenticated" | "guest">("loading")
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
-  const [authState, setAuthState] = useState<
-    "loading" | "authenticated" | "guest"
-  >("loading")
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsMode, setSettingsMode] = useState<ModalMode>("settings")
+  const [searchQuery, setSearchQuery] = useState("")
   const pathname = usePathname()
+  const router = useRouter()
   const profileMenuRef = useRef<HTMLDivElement>(null)
-  const searchRef = useRef<HTMLDivElement>(null)
+
+  const refreshProfile = useCallback(async () => {
+    setAuthState("loading")
+    const nextProfile = await resolveProfile()
+    setProfile(nextProfile)
+    setAuthState(nextProfile ? "authenticated" : "guest")
+  }, [])
+
+  const handleAuthChange = useCallback((nextProfile: AuthProfile | null) => {
+    setProfile(nextProfile)
+    setAuthState(nextProfile ? "authenticated" : "guest")
+  }, [])
+
+  useEffect(() => {
+    refreshProfile()
+
+    function handleSessionChange() {
+      refreshProfile()
+    }
+
+    function handleOpenSettings(event: Event) {
+      const detail = (event as CustomEvent<{ mode?: ModalMode }>).detail
+      setSettingsMode(detail?.mode ?? "settings")
+      setIsSettingsOpen(true)
+      setIsProfileMenuOpen(false)
+      setIsMenuOpen(false)
+    }
+
+    window.addEventListener("session-changed", handleSessionChange)
+    window.addEventListener("open-cookly-settings", handleOpenSettings)
+
+    return () => {
+      window.removeEventListener("session-changed", handleSessionChange)
+      window.removeEventListener("open-cookly-settings", handleOpenSettings)
+    }
+  }, [refreshProfile])
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
       if (!profileMenuRef.current?.contains(event.target as Node)) {
         setIsProfileMenuOpen(false)
       }
-      if (!searchRef.current?.contains(event.target as Node)) {
-        setIsSearchOpen(false)
-      }
     }
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setIsProfileMenuOpen(false)
-        setIsSearchOpen(false)
+        setIsMenuOpen(false)
       }
     }
 
@@ -48,230 +87,156 @@ export default function Navbar() {
   }, [])
 
   useEffect(() => {
-    let isActive = true
-
-    async function fetchProfileStatus() {
-      const sessionId = localStorage.getItem("session_id")
-
-      if (!sessionId) {
-        if (isActive) {
-          setAuthState("guest")
-        }
-        return
-      }
-
-      try {
-        const response = await fetch("/api/auth/profile", {
-          method: "GET",
-          headers: {
-            "X-Session-ID": sessionId,
-          },
-        })
-
-        if (!response.ok) {
-          if (isActive) {
-            setAuthState("guest")
-          }
-          return
-        }
-
-        if (isActive) {
-          setAuthState("authenticated")
-        }
-      } catch {
-        if (isActive) {
-          setAuthState("guest")
-        }
-      }
-    }
-
-    fetchProfileStatus()
-
-    function updateAuthFromSession() {
-      const sessionId = localStorage.getItem("session_id")
-
-      if (!sessionId) {
-        setAuthState("guest")
-        return
-      }
-
-      setAuthState("authenticated")
-      fetchProfileStatus()
-    }
-
-    function handleStorage(event: StorageEvent) {
-      if (event.key === "session_id") {
-        updateAuthFromSession()
-      }
-    }
-
-    function handleSessionChange() {
-      updateAuthFromSession()
-    }
-
-    window.addEventListener("storage", handleStorage)
-    window.addEventListener("session-changed", handleSessionChange)
-
-    return () => {
-      isActive = false
-      window.removeEventListener("storage", handleStorage)
-      window.removeEventListener("session-changed", handleSessionChange)
-    }
+    setIsMenuOpen(false)
+    setIsProfileMenuOpen(false)
   }, [pathname])
 
+  function openSettings(mode: ModalMode) {
+    setSettingsMode(mode)
+    setIsSettingsOpen(true)
+    setIsProfileMenuOpen(false)
+    setIsMenuOpen(false)
+  }
+
   async function handleLogout() {
-    const sessionId = localStorage.getItem("session_id")
-
-    if (!sessionId) {
-      setAuthState("guest")
-      setIsProfileMenuOpen(false)
-      return
-    }
-
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: {
-          "X-Session-ID": sessionId,
-        },
-      })
-    } finally {
-      localStorage.removeItem("session_id")
+      await logout()
+    } catch {
+      clearSessionId()
+      setProfile(null)
       setAuthState("guest")
+    } finally {
       setIsProfileMenuOpen(false)
     }
   }
 
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const query = searchQuery.trim()
+    router.push(query ? `/?q=${encodeURIComponent(query)}` : "/")
+    setIsMenuOpen(false)
+  }
+
   return (
-    <header className="border-b border-border bg-background">
-      <nav className="flex w-full items-center gap-2 px-4 py-3">
-        <Link href="/" className={cn(linkClassName, "font-semibold")}>
-          Cookly
-        </Link>
-        <Link href="/my-recipes" className={linkClassName}>
-          My recipes
-        </Link>
-        <div className="ml-auto flex items-center gap-4">
-          <div
-            ref={searchRef}
-            onMouseEnter={() => setIsSearchOpen(true)}
-            onMouseLeave={() => setIsSearchOpen(false)}
-            className="relative"
-          >
-            <button
-              type="button"
-              aria-expanded={isSearchOpen}
-              aria-label="Open search"
-              className={cn(
-                "rounded-full p-2 transition-all duration-200 ease-out hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                isSearchOpen ? "opacity-0 scale-95" : "opacity-100 scale-100"
-              )}
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="size-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.2-3.2" />
-              </svg>
-            </button>
-            <div
-              className={cn(
-                "absolute right-0 top-1/2 -translate-y-1/2 w-72 transition-all duration-200 ease-out",
-                isSearchOpen
-                  ? "opacity-100 scale-100"
-                  : "pointer-events-none opacity-0 scale-95"
-              )}
-            >
-              <label className="sr-only" htmlFor="navbar-search">
-                Search
-              </label>
+    <>
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-stone-950/80 text-stone-100 backdrop-blur-xl">
+        <nav className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-3 rounded-2xl pr-3 text-stone-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-amber-400/30">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-amber-400 text-stone-950 shadow-lg shadow-amber-500/20">
+              <ChefHat className="size-5" />
+            </span>
+            <span className="text-lg font-semibold tracking-tight">Cookly</span>
+          </Link>
+
+          <div className="hidden items-center gap-1 md:flex">
+            <Link href="/" className={cn(navLinkClass, pathname === "/" && "bg-white/10 text-stone-50")}>Main</Link>
+            <Link href="/my-recipes" className={cn(navLinkClass, pathname === "/my-recipes" && "bg-white/10 text-stone-50")}>Home</Link>
+          </div>
+
+          <form className="ml-auto hidden w-full max-w-sm lg:block" onSubmit={handleSearchSubmit}>
+            <label className="relative block" htmlFor="navbar-search">
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-stone-500" />
               <input
                 id="navbar-search"
                 type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search recipes"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none ring-ring/30 focus-visible:ring-3"
+                className="w-full rounded-2xl border border-white/10 bg-black/25 py-2.5 pl-10 pr-4 text-sm text-stone-100 outline-none transition placeholder:text-stone-600 focus:border-amber-400 focus:ring-3 focus:ring-amber-400/20"
               />
+            </label>
+          </form>
+
+          <div className="ml-auto flex items-center gap-2 lg:ml-2">
+            <button
+              type="button"
+              onClick={() => openSettings("settings")}
+              className="hidden rounded-2xl border border-white/10 p-2.5 text-stone-300 transition hover:border-amber-400/50 hover:text-amber-300 md:inline-flex"
+              aria-label="Открыть настройки"
+            >
+              <Settings className="size-5" />
+            </button>
+
+            {authState === "authenticated" ? (
+              <div ref={profileMenuRef} className="relative">
+                <button
+                  type="button"
+                  aria-expanded={isProfileMenuOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setIsProfileMenuOpen((current) => !current)}
+                  className="flex items-center gap-2 rounded-2xl border border-white/10 p-1.5 pr-3 text-sm text-stone-300 transition hover:border-emerald-400/50 hover:text-stone-50"
+                >
+                  <Image src="/default-avatar.svg" alt="Profile" width={36} height={36} className="size-9 rounded-xl bg-stone-800" />
+                  <span className="hidden max-w-24 truncate sm:inline">{profile?.userId.slice(0, 8)}</span>
+                </button>
+                {isProfileMenuOpen ? (
+                  <div role="menu" className="absolute right-0 top-full mt-2 w-56 rounded-3xl border border-white/10 bg-stone-950 p-2 shadow-2xl shadow-black/40">
+                    <button type="button" role="menuitem" onClick={() => openSettings("settings")} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm text-stone-300 transition hover:bg-white/10 hover:text-stone-50">
+                      <UserRound className="size-4" />
+                      Profile & settings
+                    </button>
+                    <button type="button" role="menuitem" onClick={handleLogout} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm text-red-200 transition hover:bg-red-500/10">
+                      <X className="size-4" />
+                      Logout
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : authState === "guest" ? (
+              <div className="hidden items-center gap-2 sm:flex">
+                <button type="button" onClick={() => openSettings("login")} className="rounded-2xl px-4 py-2 text-sm font-medium text-stone-300 transition hover:bg-white/10 hover:text-stone-50">
+                  Войти
+                </button>
+                <button type="button" onClick={() => openSettings("register")} className="rounded-2xl bg-amber-400 px-4 py-2 text-sm font-semibold text-stone-950 transition hover:bg-amber-300">
+                  Регистрация
+                </button>
+              </div>
+            ) : null}
+
+            <button type="button" onClick={() => setIsMenuOpen((current) => !current)} className="rounded-2xl border border-white/10 p-2.5 text-stone-300 transition hover:border-amber-400/50 hover:text-amber-300 md:hidden" aria-label="Открыть меню">
+              {isMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            </button>
+          </div>
+        </nav>
+
+        {isMenuOpen ? (
+          <div className="border-t border-white/10 px-4 py-4 md:hidden">
+            <div className="mx-auto max-w-7xl space-y-3">
+              <form onSubmit={handleSearchSubmit}>
+                <label className="relative block" htmlFor="mobile-navbar-search">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-stone-500" />
+                  <input
+                    id="mobile-navbar-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search recipes"
+                    className="w-full rounded-2xl border border-white/10 bg-black/25 py-3 pl-10 pr-4 text-sm text-stone-100 outline-none"
+                  />
+                </label>
+              </form>
+              <div className="grid gap-2">
+                <Link href="/" className={navLinkClass}>Main</Link>
+                <Link href="/my-recipes" className={navLinkClass}>Home</Link>
+                <button type="button" onClick={() => openSettings("settings")} className="rounded-2xl px-4 py-2 text-left text-sm font-medium text-stone-300 transition hover:bg-white/10 hover:text-stone-50">Settings</button>
+                {authState === "guest" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => openSettings("login")} className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-stone-100">Войти</button>
+                    <button type="button" onClick={() => openSettings("register")} className="rounded-2xl bg-amber-400 px-4 py-3 text-sm font-semibold text-stone-950">Регистрация</button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
-          {authState === "authenticated" ? (
-            <div ref={profileMenuRef} className="relative">
-              <button
-                type="button"
-                aria-expanded={isProfileMenuOpen}
-                aria-haspopup="menu"
-                aria-label="Open profile menu"
-                onClick={() =>
-                  setIsProfileMenuOpen((currentState) => !currentState)
-                }
-                className="rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                <Image
-                  src="/default-avatar.svg"
-                  alt="Profile"
-                  width={40}
-                  height={40}
-                  loading="eager"
-                  className="size-10 rounded-full border border-border bg-muted object-cover"
-                />
-              </button>
-              {isProfileMenuOpen ? (
-                <div
-                  role="menu"
-                  aria-label="Profile menu"
-                  className="absolute right-0 top-full z-10 mt-2 min-w-44 rounded-2xl border border-border bg-background p-2 shadow-lg"
-                >
-                  <Link
-                    href="/profile"
-                    role="menuitem"
-                    className={menuItemClassName}
-                    onClick={() => setIsProfileMenuOpen(false)}
-                  >
-                    Profile
-                  </Link>
-                  <Link
-                    href="/settings"
-                    role="menuitem"
-                    className={menuItemClassName}
-                    onClick={() => setIsProfileMenuOpen(false)}
-                  >
-                    Settings
-                  </Link>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={menuItemClassName}
-                    onClick={handleLogout}
-                  >
-                    Logout
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : authState === "guest" ? (
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                Войти
-              </Link>
-              <Link
-                href="/register"
-                className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                Регистрация
-              </Link>
-            </div>
-          ) : null}
-        </div>
-      </nav>
-    </header>
+        ) : null}
+      </header>
+
+      <AuthSettingsModal
+        open={isSettingsOpen}
+        initialMode={settingsMode}
+        onClose={() => setIsSettingsOpen(false)}
+        onAuthChange={handleAuthChange}
+      />
+    </>
   )
 }

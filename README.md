@@ -49,6 +49,7 @@ docker build -t cookly-frontend .
 docker run --rm -p 3000:3000 \
 	-e AUTH_SERVICE_URL=http://host.docker.internal:8081 \
 	-e CONTENT_SERVICE_URL=http://host.docker.internal:8082 \
+	-e SOCIAL_SERVICE_URL=http://host.docker.internal:8083 \
 	cookly-frontend
 ```
 

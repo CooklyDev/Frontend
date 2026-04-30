@@ -1,7 +1,8 @@
 import { buildServiceUrl, proxyError, proxyToUpstream, readBodyText, withSessionHeader } from "@/lib/server/proxy"
 
 export async function GET(req: Request) {
-  const url = buildServiceUrl(process.env.CONTENT_SERVICE_URL, "/collections")
+  const requestUrl = new URL(req.url)
+  const url = buildServiceUrl(process.env.CONTENT_SERVICE_URL, `/collections${requestUrl.search}`)
 
   if (!url) {
     return proxyError("CONTENT_SERVICE_URL is not set")
