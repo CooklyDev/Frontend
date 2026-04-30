@@ -1,0 +1,283 @@
+{
+    "schemes": ["http"],
+    "swagger": "2.0",
+    "info": {
+        "description": "REST API for user registration and login in Cookly Auth Service.",
+        "title": "Cookly Auth Service API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "",
+    "basePath": "/api/v1",
+    "paths": {
+        "/login": {
+            "post": {
+                "description": "Authenticates user credentials and creates a session.",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Login user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Email",
+                        "name": "email",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Password",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns the created session ID in data",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.SessionIDResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Business rule violation or adapter invariant violation",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/logout": {
+            "post": {
+                "description": "Deletes the current session identified by X-Session-ID.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Logout current session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Current session ID",
+                        "name": "X-Session-ID",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns success without data",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.LogoutResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid session ID, business rule violation, or adapter invariant violation",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/register": {
+            "post": {
+                "description": "Creates a new user account and session.",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Register user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Username",
+                        "name": "username",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Email",
+                        "name": "email",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Password",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns the created session ID in data",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.SessionIDResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Business rule violation or adapter invariant violation",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/resolve": {
+            "post": {
+                "description": "Returns session and user identifiers for the provided session ID.",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Resolve current session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns resolved session and user identifiers in data",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.ResolveSessionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid session ID, business rule violation, or adapter invariant violation",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/presentation.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "presentation.ErrorInfo": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "presentation.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/presentation.ErrorInfo"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "presentation.LogoutResponse": {
+            "type": "object",
+            "properties": {
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "presentation.ResolveSessionData": {
+            "type": "object",
+            "properties": {
+                "SessionID": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "UserID": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "7b1f5cde-8a0f-4bfb-b5e8-9d4dd0c5a7f3"
+                }
+            }
+        },
+        "presentation.ResolveSessionResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/presentation.ResolveSessionData"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "presentation.SessionIDResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        }
+    }
+}
